@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import Constants from 'expo-constants';
 import { Feather as Icon} from '@expo/vector-icons';
 import { View, StyleSheet, TouchableOpacity, Text, ScrollView, Alert, Image } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import MapView, { Marker } from 'react-native-maps';
 import { SvgUri } from 'react-native-svg';
 import * as Location from 'expo-location';
@@ -15,11 +14,27 @@ interface Item {
   image_url: string;
 }
 
+interface Point {
+  id: string;
+  name: string;
+  image: string;
+  latitude: number;
+  longitude: number;
+}
+
+interface Params {
+  uf: string;
+  city: string;
+}
+
 const Points: React.FC = () => {
   const [items, setItems] = useState<Item[]>([]);
+  const [points, setPoints] = useState<Point[]>([]);
   const [selectedItems, setSelectedItems] = useState<String[]>([]);
   const [initialPosition, setInitialPosition] = useState<[number, number]>([0, 0]);
   const navigation = useNavigation();
+  const route = useRoute();
+  const routeParams = route.params as Params;
 
   useEffect(() => {
     async function loadPosition() {
@@ -42,6 +57,19 @@ const Points: React.FC = () => {
 
     loadPosition();
   }, []);
+
+  useEffect(() => {
+    api.get('points', {
+      params: {
+        city: routeParams.city,
+        uf: routeParams.uf,
+        items: selectedItems
+      }
+    }).then(response => {
+      setPoints(response.data);
+    });
+  }, [selectedItems]);
+
   useEffect(() => {
     api.get('items').then(response => {
       setItems(response.data);
@@ -50,6 +78,10 @@ const Points: React.FC = () => {
 
   function handleNavigateBack() {
     navigation.goBack();
+  }
+
+  function handleNavigateToDetail(id: string) {
+    navigation.navigate('Detail', { point_id: id });
   }
 
   function handleSelectItem(id: string) {
@@ -84,45 +116,48 @@ const Points: React.FC = () => {
                 longitudeDelta: 0.014,
               }}
             >
-              <Marker
-                style={styles.mapMarker}
-                onPress={handleNavigateBack}
-                coordinate={{
-                  latitude: initialPosition[0],
-                  longitude: initialPosition[1],
-                }}
-              >
-                <View style={styles.mapMarkerContainer}>
-                  <Image style={styles.mapMarkerImage} source={{ uri: 'https://images.unsplash.com/photo-1501523460185-2aa5d2a0f981?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=400&q=60'}} />
-                  <Text style={styles.mapMarkerTitle}>Mercado</Text>
-                </View>
-              </Marker>
+              {points.map(point => (
+                <Marker
+                  key={point.id}
+                  style={styles.mapMarker}
+                  onPress={() => handleNavigateToDetail(point.id)}
+                  coordinate={{
+                    latitude: point.latitude,
+                    longitude: point.longitude,
+                  }}
+                >
+                  <View style={styles.mapMarkerContainer}>
+                    <Image style={styles.mapMarkerImage} source={{ uri: point.image }} />
+                    <Text style={styles.mapMarkerTitle}>{point.name}</Text>
+                  </View>
+                </Marker>
+              ))}
             </MapView>
           )}
         </View>
       </View>
-
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 20 }}
-      >
-        {items.map(item => (
-          <TouchableOpacity 
-            key={item.id} 
-            style={[
-              styles.item,
-              selectedItems.includes(item.id) ? styles.selectedItem : {}
-            ]} 
-            onPress={() => handleSelectItem(item.id)}
-            activeOpacity={0.6}
-            >
-            <SvgUri width={42} height={42} uri={item.image_url} />
-            <Text style={styles.itemTitle}>{item.title}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
+      <View style={styles.itemsContainer}>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 32 }}
+        >
+          {items.map(item => (
+            <TouchableOpacity 
+              key={item.id} 
+              style={[
+                styles.item,
+                selectedItems.includes(item.id) ? styles.selectedItem : {}
+              ]} 
+              onPress={() => handleSelectItem(item.id)}
+              activeOpacity={0.6}
+              >
+              <SvgUri width={42} height={42} uri={item.image_url} />
+              <Text style={styles.itemTitle}>{item.title}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
     </>
   );
 };
@@ -131,7 +166,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 32,
-    paddingTop: 20 + Constants.statusBarHeight,
+    paddingTop: 25,
   },
 
   title: {

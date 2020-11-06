@@ -1,5 +1,4 @@
 import React from 'react';
-import Home from './src/pages/Home';
 import { AppLoading } from 'expo';
 import { StatusBar } from 'react-native';
 import { Roboto_400Regular, Roboto_500Medium } from '@expo-google-fonts/roboto';

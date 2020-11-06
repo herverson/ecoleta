@@ -19,6 +19,11 @@ class PointsController {
         .distinct()
         .select('points.*');
     
+    points.map(point => {
+        point['latitude'] = Number(point['latitude']);
+        point['longitude'] = Number(point['longitude']);
+      }
+    );
     return response.json(points);
   }
 
