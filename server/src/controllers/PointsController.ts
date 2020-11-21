@@ -18,13 +18,20 @@ class PointsController {
         .where('uf', String(uf))
         .distinct()
         .select('points.*');
-    
+
     points.map(point => {
-        point['latitude'] = Number(point['latitude']);
-        point['longitude'] = Number(point['longitude']);
-      }
-    );
-    return response.json(points);
+      point['latitude'] = Number(point['latitude']);
+      point['longitude'] = Number(point['longitude']);
+    });
+
+    const serializedPoints = points.map(point => {
+      return {
+        ...point,
+        image_url: `http://192.168.0.106:3030/uploads/${point.image}`,
+      };
+    });
+
+    return response.json(serializedPoints);
   }
 
   async show(request: Request, response: Response) {
@@ -40,8 +47,13 @@ class PointsController {
         .join('point_items', 'items.id', '=', 'point_items.item_id')
         .where('point_items.point_id', id)
         .select('items.title');
+
+    const serializedPoint = {
+      ...point,
+      image_url: `http://192.168.0.106:3030/uploads/${point.image}`,
+    }
     
-    return response.json({ point, items });
+    return response.json({ point: serializedPoint, items });
   }
 
   async create(request: Request, response: Response) {
@@ -58,7 +70,7 @@ class PointsController {
     try {
       const point = {
         id: uuidv4(),
-        image: 'https://images.unsplash.com/photo-1501523460185-2aa5d2a0f981?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=400&q=60',
+        image: request.file.filename,
         name,
         email,
         whatsapp,
@@ -73,7 +85,10 @@ class PointsController {
   
       const point_id = insertedIds[0];
   
-      const pointItems = items.map((item_id: string) => {
+      const pointItems = items
+        .split(',')
+        .map((item: string) => (item.trim()))
+        .map((item_id: string) => {
         const id = uuidv4();
         return {
           id,
@@ -89,7 +104,8 @@ class PointsController {
       return response.json({
         ...point,
       });
-    } catch (_) {
+    } catch (error) {
+      console.log(error);
       return response.json({ success: false })
     }
   }
